@@ -1,166 +1,331 @@
+
 import streamlit as st
 import pandas as pd
 import joblib
+from pathlib import Path
 
-model=joblib.load('logistic_model.pkl')
-scaler=joblib.load('scaler.pkl')
-required_col=joblib.load('columns.pkl')
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Heart Disease Prediction",
+    page_icon="❤️",
+    layout="wide"
+)
 
-st.header('Heart Dieases Prediction Model')
-
-st.markdown('please Provide folloving details for predict Heart Dieases')
-
-#! Age', 'Sex', 'ChestPainType', 'RestingBP', 'Cholesterol', 'FastingBS',
-#! 'RestingECG', 'MaxHR', 'ExerciseAngina', 'Oldpeak', 'ST_Slope'
-
-age=st.slider("Age", 10, 100, 20)
-sex=st.selectbox('Gender', ['M', 'F'])
-chestpaintype=st.selectbox('ChestPainType', ['ATA', 'NAP', 'ASY', 'TA'])
-restingbp=st.number_input('RestingBP', 0, 200, 125)
-cholesterol=st.number_input('Cholesterol', 0)
-fastingbs=st.selectbox('FastingBS', [0, 1])
-restingECG=st.selectbox('RestingECG',['Normal', 'ST', 'LVH'])
-maxhr=st.number_input('MaxHR', 0, 300, 121)
-exerciseangina=st.selectbox('ExerciseAngina', ['N', 'Y'])
-oldpeak=st.slider('Oldpeak', -10, 10)
-st_slop=st.selectbox('ST_Slope',['Up', 'Flat', 'Down'])
-
-if st.button('predict'):
-    input_data={
-        'Age':age,
-        'Sex_'+sex:1,
-        'ChestPainType_'+chestpaintype:1,
-        'RestingBP':restingbp,
-        'Cholesterol':cholesterol,
-        'FastingBS':fastingbs,
-        'RestingECG_'+restingECG:1,
-        'MaxHR':maxhr,
-        'ExerciseAngina_'+exerciseangina:1,
-        'Oldpeak':oldpeak,
-        'ST_Slope_'+st_slop:1
+# Hide heading link icons
+st.markdown(
+    """
+    <style>
+    [data-testid="stHeaderActionElements"] {
+        display: none !important;
     }
-    df=pd.DataFrame([input_data])
-    for col in required_col:
-        if col not in df.columns:
-            df[col]=0
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+BASE_DIR = Path(__file__).resolve().parent
+
+
+# ---------------- LOAD SAVED FILES ----------------
+@st.cache_resource
+def load_model():
+    model = joblib.load(BASE_DIR / "logistic_model.pkl")
+    scaler = joblib.load(BASE_DIR / "scaler.pkl")
+    columns = joblib.load(BASE_DIR / "columns.pkl")
+    return model, scaler, columns
 
-    df=df[required_col]
 
-    X_scaled=scaler.transform(df)
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("HeartCare AI")
+st.sidebar.caption("Heart Disease Prediction")
+st.sidebar.divider()
 
-    predict=model.predict(X_scaled)
-    # st.markdown(predict[0])
-    if (predict[0] == 0):
-        st.success('Low Chance of Heart Dieases')
-    else:
-        st.warning('High Chance Of Heart Dieases')    
+page = st.sidebar.radio(
+    "Navigation",
+    ["Predict", "About Project"]
+)
 
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+st.sidebar.divider()
+st.sidebar.subheader("Model Information")
+st.sidebar.write("Algorithm: Logistic Regression")
+st.sidebar.write("Task: Classification")
+
+
+# ---------------- MAIN HEADER ----------------
+st.title("Heart Disease Prediction System")
+
+st.write(
+    "Enter the patient information to obtain a machine learning "
+    "prediction based on the heart disease dataset."
+)
+
+st.info(
+    "Educational project only. This prediction is not a medical "
+    "diagnosis. Consult a qualified healthcare professional for "
+    "medical assessment."
+)
+
+st.divider()
+
+
+# ---------------- ABOUT PAGE ----------------
+if page == "About Project":
+
+    st.header("About the Project")
+
+    st.write(
+        "This project uses a trained Logistic Regression classifier "
+        "to predict the heart disease label from patient health "
+        "and examination features."
+    )
+
+    st.subheader("Input Features")
+
+    st.markdown("""
+    - Age
+    - Sex
+    - Chest Pain Type
+    - Resting Blood Pressure
+    - Cholesterol
+    - Fasting Blood Sugar
+    - Resting ECG
+    - Maximum Heart Rate
+    - Exercise-Induced Angina
+    - Oldpeak
+    - ST Slope
+    """)
+
+    st.subheader("Technologies Used")
+
+    st.markdown("""
+    - Python
+    - Streamlit
+    - Pandas
+    - Scikit-learn
+    - Joblib
+    """)
+
+    st.warning(
+        "The output represents a model classification, not a "
+        "confirmed diagnosis or an individual's actual risk."
+    )
+
+    st.stop()
+
+
+# ---------------- LOAD MODEL ----------------
+try:
+    model, scaler, feature_columns = load_model()
+
+except Exception as error:
+    st.error(f"Could not load the model files: {error}")
+    st.write(
+        "Keep logistic_model.pkl, scaler.pkl and columns.pkl "
+        "in the same folder as app.py."
+    )
+    st.stop()
+
+
+# ---------------- PATIENT INPUT FORM ----------------
+st.header("Patient Information")
+st.write("Complete the fields below.")
+
+with st.form("heart_prediction_form"):
+
+    st.subheader("1. Basic Information")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        age = st.number_input(
+            "Age (years)",
+            min_value=1,
+            max_value=120,
+            value=45
+        )
+
+    with col2:
+        sex = st.selectbox(
+            "Sex",
+            ["F", "M"],
+            format_func=lambda x: {
+                "F": "Female",
+                "M": "Male"
+            }[x]
+        )
+
+    with col3:
+        chest_pain = st.selectbox(
+            "Chest Pain Type",
+            ["ASY", "ATA", "NAP", "TA"],
+            format_func=lambda x: {
+                "ASY": "Asymptomatic (ASY)",
+                "ATA": "Atypical Angina (ATA)",
+                "NAP": "Non-Anginal Pain (NAP)",
+                "TA": "Typical Angina (TA)"
+            }[x]
+        )
+
+    st.divider()
+    st.subheader("2. Clinical Measurements")
+
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+        resting_bp = st.number_input(
+            "Resting Blood Pressure (mm Hg)",
+            min_value=0,
+            max_value=300,
+            value=120
+        )
+
+    with col5:
+        cholesterol = st.number_input(
+            "Cholesterol (mg/dL)",
+            min_value=1,
+            max_value=1000,
+            value=200
+        )
+
+    with col6:
+        fasting_bs = st.selectbox(
+            "Fasting Blood Sugar > 120 mg/dL",
+            [0, 1],
+            format_func=lambda x: "No (0)" if x == 0 else "Yes (1)"
+        )
+
+    col7, col8, col9 = st.columns(3)
+
+    with col7:
+        resting_ecg = st.selectbox(
+            "Resting ECG",
+            ["LVH", "Normal", "ST"]
+        )
+
+    with col8:
+        max_hr = st.number_input(
+            "Maximum Heart Rate (bpm)",
+            min_value=1,
+            max_value=250,
+            value=150
+        )
+
+    with col9:
+        exercise_angina = st.selectbox(
+            "Exercise-Induced Angina",
+            ["N", "Y"],
+            format_func=lambda x: {
+                "N": "No",
+                "Y": "Yes"
+            }[x]
+        )
+
+    st.divider()
+    st.subheader("3. Additional Measurements")
+
+    col10, col11 = st.columns(2)
+
+    with col10:
+        oldpeak = st.number_input(
+            "Oldpeak",
+            min_value=-5.0,
+            max_value=15.0,
+            value=0.0,
+            step=0.1,
+            help="Enter the value used by the dataset."
+        )
+
+    with col11:
+        st_slope = st.selectbox(
+            "ST Slope",
+            ["Down", "Flat", "Up"]
+        )
+
+    submitted = st.form_submit_button(
+        "Predict Heart Disease",
+        type="primary",
+        use_container_width=True
+    )
+
+
+# ---------------- PREDICTION ----------------
+if submitted:
+
+    try:
+        # Raw input names must match the training dataset.
+        patient = pd.DataFrame([{
+            "Age": age,
+            "Sex": sex,
+            "ChestPainType": chest_pain,
+            "RestingBP": resting_bp,
+            "Cholesterol": cholesterol,
+            "FastingBS": fasting_bs,
+            "RestingECG": resting_ecg,
+            "MaxHR": max_hr,
+            "ExerciseAngina": exercise_angina,
+            "Oldpeak": oldpeak,
+            "ST_Slope": st_slope
+        }])
+
+        # Apply the same one-hot encoding approach as training.
+        patient_encoded = pd.get_dummies(
+            patient,
+            dtype=int,
+            drop_first=True
+        )
+
+        # Match the exact feature names and order used in training.
+        patient_encoded = patient_encoded.reindex(
+            columns=feature_columns,
+            fill_value=0
+        )
+
+        # Use the saved training scaler.
+        patient_scaled = scaler.transform(patient_encoded)
+
+        prediction = int(model.predict(patient_scaled)[0])
+
+        st.divider()
+        st.header("Prediction Result")
+
+        if prediction == 1:
+            st.error(
+                "The model classified this input as: "
+                "Heart Disease Present"
+            )
+        else:
+            st.success(
+                "The model classified this input as: "
+                "Heart Disease Not Detected"
+            )
+
+        st.subheader("Patient Summary")
+
+        r1, r2, r3 = st.columns(3)
+
+        r1.metric("Age", f"{age} years")
+        r2.metric("Cholesterol", f"{cholesterol} mg/dL")
+        r3.metric("Maximum Heart Rate", f"{max_hr} bpm")
+
+        st.write(f"**Sex:** {sex}")
+        st.write(f"**Chest Pain Type:** {chest_pain}")
+        st.write(f"**Resting Blood Pressure:** {resting_bp} mm Hg")
+        st.write(f"**Fasting Blood Sugar:** {fasting_bs}")
+        st.write(f"**Resting ECG:** {resting_ecg}")
+        st.write(f"**Exercise-Induced Angina:** {exercise_angina}")
+        st.write(f"**Oldpeak:** {oldpeak}")
+        st.write(f"**ST Slope:** {st_slope}")
+
+        st.warning(
+            "This is only a machine learning classification. "
+            "It cannot confirm or rule out heart disease. "
+            "Please consult a healthcare professional for medical advice."
+        )
+
+    except Exception as error:
+        st.error(f"Prediction failed: {error}")
+
+
+# ---------------- FOOTER ----------------
+st.divider()
+st.caption("HeartCare AI | Machine Learning Project")
